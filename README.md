@@ -1,23 +1,20 @@
 # DataOps - Python ✕ Docker ✕ Jenkins  
-Proceso automático de cálculo de comisiones.
+Proceso automático de un data entry de nuevos usuarios.
 
 ---
 
 ## 1. Descripción
 
-Este proyecto ejecuta, de forma **100 % automatizada**, el flujo mensual de cálculo de comisiones :
+Este proyecto ejecuta, de forma **100 % automatizada**, el flujo mensual de nuevos usuarios :
 
 1. **Ingesta**  
-   - Lee el CSV `ComisionEmpleados_V1_<AAAAMM>.csv` correspondiente al mes en curso.  
    - Extrae la tabla **`rrhh.empleado`** desde PostgreSQL.
 
 2. **Transformación**  
-   - Normaliza valores numéricos.  
-   - Calcula la comisión por empleado.  
+   - Tratamos valores faltantes y nulos
 
 3. **Salida**  
-   - Exporta el resultado a **Excel** (`ComisionesCalculadas.xlsx`).  
-   - Envía el archivo por e-mail al destinatario configurado.
+   - Exporta el resultado a **Excel** (`empleados_limpios_{periodo}.csvxlsx`).  
 
 4. **Orquestación**  
    - Todo el código corre dentro de un contenedor **Docker** reproducible.  
@@ -35,8 +32,8 @@ Este proyecto ejecuta, de forma **100 % automatizada**, el flujo mensual de cál
 └──────────────┘                  │                │
 ▲                                 │ 1. Lee CSV     │
 │                                 │ 2. Lee PG      │
-│  logs / artefactos              │ 3. Calcula     │
-└─────────────────────────────────│ 4. Excel+e-mail│
+│  logs / artefactos              │ 3. Limpia      │
+└─────────────────────────────────│                │
                                   └────────────────┘
 
 ```
@@ -53,7 +50,6 @@ Este proyecto ejecuta, de forma **100 % automatizada**, el flujo mensual de cál
 | openpyxl   | 3.x     | Exportar a Excel                     |
 | Docker     | 24+     | Aislamiento y portabilidad           |
 | Jenkins    | 2.452+  | CI/CD y orquestación DataOps         |
-| Mailtrap   | (sandbox) | Envío seguro de correos en pruebas |
 
 ---
 
@@ -81,7 +77,6 @@ Este proyecto ejecuta, de forma **100 % automatizada**, el flujo mensual de cál
 | Docker Engine | activo y con permisos para compilar imágenes |
 | Jenkins agent | con acceso a Docker / Podman |
 | PostgreSQL | tabla `rrhh.empleado` accesible desde el runner |
-| Mailtrap (sandbox) | para pruebas de e-mail sin riesgo |
 | Variable `CONFIG_FILE` | (opcional) ruta al `config.json` dentro del contenedor |
 
 ---
@@ -96,22 +91,6 @@ Este proyecto ejecuta, de forma **100 % automatizada**, el flujo mensual de cál
     "dbname": "dmc",
     "user": "usr_ro_dmc_rrhh_estudiantes",
     "password": "********"
-  },
-  "smtp": {
-    "server": "sandbox.smtp.mailtrap.io",
-    "port": 587,
-    "user": "********",
-    "password": "********",
-    "sender_email": "Python DataOps <pydataops@example.com>"
-  },
-  "paths": {
-    "csv_dir": "/app/data",
-    "excel": "ComisionesCalculadas.xlsx"
-  },
-  "report": {
-    "to": "finanzas@example.com",
-    "subject": "Comisiones Calculadas",
-    "body_html": "Adjunto reporte de comisiones mensuales.<br>Saludos."
   }
 }
 ````
@@ -124,17 +103,8 @@ Este proyecto ejecuta, de forma **100 % automatizada**, el flujo mensual de cál
 
 ```bash
 # clonar
-git clone https://github.com/tu-org/dataops-comisiones.git
-cd dataops-comisiones
-
-# compilar imagen
-docker build -t dataops/comisiones:latest .
-
-# prueba en local (monta CSV y config)
-docker run --rm \
-  -v "$PWD/config.json:/app/config.json:ro" \
-  -v "$PWD/data:/app/data:ro" \
-  dataops/comisiones:latest
+git clone https://github.com/caszarjos2/dataops-limpieza-caszarjos.git
+cd app
 ```
 
 ---
@@ -144,53 +114,56 @@ docker run --rm \
 ```groovy
 pipeline {
   agent any
+
   environment {
-    IMAGE = "registry.example.com/dataops/comisiones:${env.BUILD_NUMBER}"
+    IMAGE = "dev-ops-app-app:latest"
   }
 
   stages {
     stage('Checkout') {
-      steps { checkout scm }
+      steps {
+        checkout scm
+      }
     }
 
     stage('Build') {
       steps {
+        echo '🔧 Construyendo imagen Docker...'
         sh 'docker build -t $IMAGE .'
       }
     }
 
-    stage('Test job') {
+    stage('Ejecutar limpieza de datos') {
       steps {
+        echo '🚀 Ejecutando ETL dentro del contenedor...'
         sh '''
           docker run --rm \
             -v $WORKSPACE/config.json:/app/config.json:ro \
             -v $WORKSPACE/data:/app/data:ro \
+            -v $WORKSPACE/data/output:/app/data/output \
             $IMAGE
         '''
       }
     }
 
-    stage('Push image') {
-      when { branch 'main' }
+    stage('Publicar CSV limpio') {
       steps {
-        withCredentials([usernamePassword(credentialsId: 'registry-creds',
-                                          usernameVariable: 'REG_USER',
-                                          passwordVariable: 'REG_PASS')]) {
-          sh '''
-            echo $REG_PASS | docker login registry.example.com -u $REG_USER --password-stdin
-            docker push $IMAGE
-          '''
-        }
+        echo '📦 Publicando artefacto CSV...'
+        archiveArtifacts artifacts: 'data/output/*.csv', fingerprint: true
       }
     }
   }
 
   post {
     success {
-      archiveArtifacts artifacts: 'ComisionesCalculadas.xlsx', fingerprint: true
+      echo '✅ Pipeline ejecutado con éxito. CSV generado.'
+    }
+    failure {
+      echo '❌ Error en el pipeline. Revisar logs.'
     }
   }
 }
+
 ```
 
 * El stage **Test job** ejecuta el contenedor con los archivos de prueba.
@@ -198,19 +171,7 @@ pipeline {
 
 ---
 
-## 9. Extensiones sugeridas
-
-| Idea                                                             | Valor                                          |
-| ---------------------------------------------------------------- | ---------------------------------------------- |
-| Desplegar en **AWS Fargate** o **Kubernetes CronJob**            | Escalabilidad sin servidores Jenkins dedicados |
-| Reemplazar Mailtrap por **SES / SendGrid** para producción       | Envío de correos en masa                       |
-| Añadir tests unitarios con **pytest** y cobertura en el pipeline | Calidad de código                              |
-| Incluir **alertas Slack** tras cada ejecución                    | visibilidad del proceso DataOps                |
-| Parametrizar el período para reprocesos manuales                 | flexibilidad operacional                       |
-
----
-
-## 10. Licencia
+## 9. Licencia
 
 DMC © 2025 — Miguelangel / DMC Institute
 Se permite uso comercial y modificación bajo los términos de la licencia.
