@@ -7,7 +7,8 @@ Flujo:
 3.  Exporta a Excel
 
 """
-from pathlib import Path             # Manipulación de rutas
+from datetime import date
+from pathlib import Path
 import json, os
 import psycopg2
 import pandas as pd
@@ -25,18 +26,17 @@ DB_CFG    = CFG["db"]
 
 # ─────────────────────────── 2. Script principal  ──────────────────────────── #
 def main() -> None:
-    # 3.2  Si no hay CSV para el mes, abortar sin error
+    periodo = date.today().strftime("%Y%m")
 
-    # 3.4  Leer tabla «rrhh.empleado» desde PostgreSQL
     with psycopg2.connect(**DB_CFG) as conn, conn.cursor() as cur:
         cur.execute("SELECT * FROM rrhh.empleado;")
         db_df = pd.DataFrame(cur.fetchall(), columns=[c[0] for c in cur.description])
-        
+
     db_df["mnt_tope_comision"] = db_df["mnt_tope_comision"].fillna(0)
     df_str = db_df.astype(str)
     
     output_dir = "data/output"
-    output_file = os.path.join(output_dir, "empleados_limpios.csv")
+    output_file = os.path.join(output_dir, f"empleados_limpios_{periodo}.csv")
 
     os.makedirs(output_dir, exist_ok=True)
     df_str.to_csv(output_file, index=False)
