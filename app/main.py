@@ -5,9 +5,10 @@ Flujo:
 1.  Lee empleados desde PostgreSQL
 2.  Realizamos limpieza de la data
 3.  Exporta a Excel
+
 """
 from pathlib import Path             # Manipulación de rutas
-import json, os, sys, smtplib        # Varios módulos estándar
+import json, os
 import psycopg2
 import pandas as pd
 from typing import Union
@@ -37,7 +38,7 @@ def main() -> None:
     
     output_dir = "data/output"
     output_file = os.path.join(output_dir, "empleados_limpios.csv")
-    
+
     os.makedirs(output_dir, exist_ok=True)
     df_str.to_csv(output_file, index=False)
 
