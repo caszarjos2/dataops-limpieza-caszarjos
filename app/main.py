@@ -30,8 +30,7 @@ def main() -> None:
     # 3.4  Leer tabla «rrhh.empleado» desde PostgreSQL
     with psycopg2.connect(**DB_CFG) as conn, conn.cursor() as cur:
         cur.execute("SELECT * FROM rrhh.empleado;")
-    
-    db_df = pd.DataFrame(cur.fetchall(), columns=[c[0] for c in cur.description])
+        db_df = pd.DataFrame(cur.fetchall(), columns=[c[0] for c in cur.description])
         
     db_df["mnt_tope_comision"] = db_df["mnt_tope_comision"].fillna(0)
     df_str = db_df.astype(str)
