@@ -1,0 +1,11 @@
+empleado_id,tip_documento,num_documento,nom_empleado,ape_empleado,cod_cargo,cod_departamento,mnt_salario,mnt_tope_comision
+1,DNI,78901234,Ana,Pérez,CAR004,DEP004,1800.0,0.0
+2,CE,AB123456,Carlos,López,CAR002,DEP002,2500.5,300.0
+3,Pasaporte,XYZ789,Sofía,Martínez,CAR003,DEP003,2200.75,0.0
+4,DNI,12345678,Daniel,Gómez,CAR001,DEP001,4000.0,500.0
+5,CE,CD987654,Elena,Rodríguez,CAR005,DEP005,2000.2,0.0
+6,DNI,23456789,Javier,Vargas,CAR004,DEP004,1750.0,0.0
+7,Pasaporte,UVW654,Camila,Torres,CAR002,DEP002,2650.8,320.0
+8,DNI,34567890,Mateo,Díaz,CAR003,DEP003,2100.9,0.0
+9,CE,EF543210,Valentina,Ruiz,CAR001,DEP001,4200.5,550.0
+10,DNI,45678901,Sebastián,Castro,CAR005,DEP005,1950.4,0.0
